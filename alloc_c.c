@@ -3,10 +3,16 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <stdlib.h>
 // using word_t = intptr_t;
 #define word_t intptr_t
 
-// static intptr_t word_t = intptr_t;
+typedef enum{
+  FirstFit,
+  NextFit,
+  BestFit
+}SearchMode;
+
 
 typedef struct Block{
   size_t size;
@@ -15,8 +21,27 @@ typedef struct Block{
   word_t data[1];
 }Block;
 
+
 Block* heapStart = NULL;
 Block* top = NULL;
+Block* searchStart = NULL;
+
+SearchMode searchMode = FirstFit;
+
+
+void reset_heap(){
+  if(heapStart==NULL) return;
+
+  brk(heapStart);
+  heapStart = NULL;
+  top = NULL;
+  searchStart = NULL;
+}
+
+void init( SearchMode mode){
+  searchMode = mode;
+  reset_heap();
+}
 
 // using bitmask to align
 static inline size_t align_mem(size_t n){
@@ -26,18 +51,100 @@ static inline size_t align_mem(size_t n){
 static inline size_t allocSize(size_t size){
   return size + sizeof(Block) - sizeof(((Block*)0)->data);
 }
-
 Block* req_from_os(size_t size){
   Block* block = (Block*)sbrk(0);
   if(sbrk(allocSize(size))==(void*)-1){
+
     return NULL;
   }
   return block;
 }
+
+// First fit algo
+
+Block* first_fit(size_t size){
+  Block* block = heapStart;
+  while(block!=NULL){
+    if(block->used || block->size < size){
+      block=block->next;
+      continue;
+    }
+    return block;
+  }
+
+  return NULL;
+}
+
+Block* next_fit(size_t size){
+  searchStart = heapStart;
+  Block* block = searchStart;
+  while(block!=NULL){
+    if(block->used || block->size<size){
+      block = block->next;
+      continue;
+    }
+    searchStart = block;
+    return block;
+  }
+  return NULL;
+}
+
+Block* best_fit(size_t size){
+  searchStart = heapStart;
+  Block* block = searchStart;
+  
+  Block* min_block = NULL;
+  uint64_t min_size = UINT64_MAX;
+
+  while(block!=NULL){
+    // printf("reaching here");
+    if(block->used || block->size < size){
+      block = block->next;
+      continue;
+    }
+
+    if(!block->used && min_size>block->size){
+        min_size = block->size;
+        min_block = block;
+        block = block->next;
+    }
+
+  }
+
+  // printf("block : %ld ",min_block->size);
+  // free(block);
+  return min_block;  
+}
+
+Block* findBlock(size_t size){
+  switch (searchMode) 
+  {
+  case FirstFit:
+    return first_fit(size);
+  case NextFit:
+    return next_fit(size); 
+  case BestFit:
+    return best_fit(size);
+  default:
+    break;
+  }
+
+
+  // return first_fit(size);
+}
+
+
+
 word_t* alloc_mem(size_t size){
   size = align_mem(size);
 
-  Block* block = req_from_os(size);
+  Block* block = findBlock(size);
+
+  if(block!=NULL){
+    return block->data;
+  }
+
+  block = req_from_os(size);
   block->size = size;
   block->used = true;
 
@@ -60,6 +167,10 @@ Block* getHeader(word_t *data){
   return (Block*)((char*)data + sizeof(((Block*)0)->data)-sizeof(Block));
 }
 
+void free_mem(word_t* data){
+  Block* block = getHeader(data);
+  block->used = false;
+}
 
 int main(){
   // word_t* word = alloc_mem(5);
@@ -71,9 +182,56 @@ int main(){
   Block* p1b = getHeader(p1);
   assert(p1b->size==sizeof(word_t));
 
+
   word_t* p2 = alloc_mem(8);
   Block* p2b = getHeader(p2);
   assert(p2b->size==8);
+
+// Freeing mem(setting block->used as false)
+
+  free_mem(p2);
+  assert(p2b->used==false);
+
+// First fit
+
+  word_t* p3 = alloc_mem(8);
+  Block* p3b = getHeader(p3);
+  assert(p3b->size==8);
+  assert(p3b==p2b);
+
+// Next Fit
+  init(NextFit);
+  alloc_mem(8);
+  alloc_mem(8);
+  alloc_mem(8);
+
+  word_t* o1 = alloc_mem(16);
+  word_t* o2 = alloc_mem(16);
+
+  free_mem(o1);
+  free_mem(o2);
+
+  word_t* o3 = alloc_mem(16);
+  assert(searchStart==getHeader(o3));
+
+
+// Best Fit
+  init(BestFit);
+  alloc_mem(8);
+  word_t* z1 = alloc_mem(64);
+  alloc_mem(8);
+  word_t* z2 = alloc_mem(16);
+
+  free_mem(z2);
+  free_mem(z1);
+
+  word_t* z3 = alloc_mem(16);
+
+  // printf("block size : %ld",getHeader(z3)->size);
+
+  assert(getHeader(z3)==getHeader(z2));
+
+
 
   printf("\nAll Assertions Passed\n");
 
