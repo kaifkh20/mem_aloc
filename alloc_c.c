@@ -4,13 +4,16 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include "free_list.h"
 // using word_t = intptr_t;
+
 #define word_t intptr_t
 
 typedef enum{
   FirstFit,
   NextFit,
-  BestFit
+  BestFit,
+  FreeList
 }SearchMode;
 
 
@@ -28,6 +31,7 @@ Block* searchStart = NULL;
 
 SearchMode searchMode = FirstFit;
 
+struct free_list fl = init();
 
 void reset_heap(){
   if(heapStart==NULL) return;
@@ -151,6 +155,19 @@ Block* best_fit(size_t size){
   return min_block;  
 }
 
+Block* free_list(size_t size){
+  struct node* temp = fl->head;
+  while(temp!=NULL){
+      if(temp->data->size < size){
+        temp = temp->next;  
+        continue;
+      }
+      remove(temp->data,&fl);
+      return listAllBlock(temp->data,size);  
+    // temp = temp->next; 
+  }
+}
+
 Block* findBlock(size_t size){
   switch (searchMode) 
   {
@@ -160,6 +177,8 @@ Block* findBlock(size_t size){
     return next_fit(size); 
   case BestFit:
     return best_fit(size);
+  case FreeList:
+    return free_list(size);
   default:
     break;
   }
