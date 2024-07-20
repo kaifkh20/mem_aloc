@@ -74,7 +74,7 @@ void insert(Block* data){
     new_node->next = NULL;
 
     tail = new_node;
-    
+
 }
 
 
