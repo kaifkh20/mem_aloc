@@ -60,6 +60,41 @@ Block* req_from_os(size_t size){
   return block;
 }
 
+Block* splitBlock(Block* block,size_t size){
+
+  // printf("reaching here");
+
+    Block* block1 = block;
+    
+    Block* block2;
+    block1->next = block2;
+    block1->size = size;
+
+    Block* next_pointed_to_by_block = block->next;
+    block2->next = next_pointed_to_by_block;
+    block2->size = abs(block->size-size);
+    block2->used = false;
+
+    return block1;
+}
+
+static inline bool canSplit(Block* block,size_t size){
+  if(block!=NULL && block->size>size){
+    return true;
+  }else false;
+}
+
+Block* listAllBlock(Block* block,size_t size){
+  if(block==NULL) return NULL;
+  if(canSplit(block,size)){
+    block = splitBlock(block,size);
+  }
+  block->used = true;
+  block->size = size;
+
+  return block;
+}
+
 // First fit algo
 
 Block* first_fit(size_t size){
@@ -139,6 +174,8 @@ word_t* alloc_mem(size_t size){
   size = align_mem(size);
 
   Block* block = findBlock(size);
+  // printf("calling split");
+  // block = listAllBlock(block,size);
 
   if(block!=NULL){
     return block->data;
@@ -167,8 +204,34 @@ Block* getHeader(word_t *data){
   return (Block*)((char*)data + sizeof(((Block*)0)->data)-sizeof(Block));
 }
 
+static inline bool canMerge(Block *block){
+  return block->next && !block->next->used;
+}
+
+// Merger adjacent block
+
+Block* merge(Block* block){
+    Block* block1 = block;
+    Block* block2 = block->next;
+
+    Block* pointed_to_by_block2 = block2->next;
+
+    Block* block3;
+
+    size_t size_block3 = block1->size + block2->size;
+
+    block3->size = size_block3;
+    block3->next = pointed_to_by_block2;
+    
+    return block3;
+}
+
+
 void free_mem(word_t* data){
   Block* block = getHeader(data);
+  if(canMerge(block)){
+    block = merge(block);
+  }
   block->used = false;
 }
 
@@ -225,14 +288,17 @@ int main(){
   free_mem(z2);
   free_mem(z1);
 
+  // printf("%ld",getHeader(z1)->size);
+
   word_t* z3 = alloc_mem(16);
 
   // printf("block size : %ld",getHeader(z3)->size);
 
   assert(getHeader(z3)==getHeader(z2));
-
-
-
+  
+  // z3 = alloc_mem(16);
+  // assert(getHeader(z3) == getHeader(z1));
+  
   printf("\nAll Assertions Passed\n");
 
 
