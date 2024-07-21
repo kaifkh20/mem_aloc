@@ -74,16 +74,19 @@ struct free_list init_freelist(){
 // 	} 
 // } 
 
-void insert(Block* data,free_list* fl){
+void insert_into_freelist(Block* data,struct free_list* fl){
     // insert_at_head(data);
+	
+
     struct node* new_node = create_node(data);
     struct node* temp_node = head;
 
-    while(temp_node->next!=NULL){
+
+    while(temp_node!=NULL && temp_node->next!=NULL){
         temp_node = temp_node->next;   
     }
 
-    temp_node->next = new_node;
+    if (temp_node!=NULL) temp_node->next = new_node;
     new_node->prev = temp_node;
     new_node->next = NULL;
   
@@ -96,20 +99,28 @@ void insert(Block* data,free_list* fl){
     fl->head = head;
     fl->tail = tail;
     fl->size = fl->size+1;
+
+	// printf("data size of head %ld",fl->head->datasize);
 }
 
-void remove(Block* data,free_list* fl){
+void remove_from_freelist(Block* data,struct free_list* fl){
+//   printf("removed from freelist");
+	 
+//   printf("%ld",data->size);
   
-  if(fl.size==0) return ;
+  if(fl->size==0) return ;
 
   struct node* temp_node = head;
-  while(temp_node!=tail && temp_node->data!=data){
-    temp_node = temp_node->next;
+  
+  while(temp_node!=NULL && temp_node->data!=data){
+	temp_node=temp_node->next;
   }
-  if(temp_node==tail && temp_node->data==data){
-    printf("No such element in freelist\n");
-    exit(EXIT_FAILURE);
+
+  if(temp_node==NULL){
+	printf("No such element in free list\n");
+	exit(EXIT_FAILURE);
   }
+
   if(temp_node->data==data){
     
     if(temp_node==tail){
@@ -117,7 +128,7 @@ void remove(Block* data,free_list* fl){
     }
     if(temp_node==head){
       head = temp_node->next;
-      head->next = NULL;
+    //   head->next = NULL;
     }
     struct node* prev_node = temp_node->prev;
     struct node* next_node = temp_node->next;
@@ -129,68 +140,10 @@ void remove(Block* data,free_list* fl){
     if(next_node!=NULL) next_node->prev = prev_node;
   }
   
-  fl->head = head;
-  fl->tail = tail;
   if(fl->size>0)fl->size-=1;
+  fl->head = (fl->size==0)?NULL:head;
+  fl->tail = (fl->size==0)?NULL:tail;
+
 }
-
-// // delete the node at the beginning of the list 
-// void delete_at_head() 
-// { 
-// 	if (head == NULL) { 
-// 		return; 
-// 	} 
-// 	struct node* temp = head; 
-// 	if (head == tail) { 
-// 		head = NULL; 
-// 		tail = NULL; 
-// 	} 
-// 	else { 
-// 		head = head->next; 
-// 		head->prev = NULL; 
-// 	} 
-// 	free(temp); 
-// } 
-//
-// // delete the node at the end of the list 
-// void delete_at_tail() 
-// { 
-// 	if (tail == NULL) { 
-// 		return; 
-// 	} 
-// 	struct node* temp = tail; 
-// 	if (head == tail) { 
-// 		head = NULL; 
-// 		tail = NULL; 
-// 	} 
-// 	else { 
-// 		tail = tail->prev; 
-// 		tail->next = NULL; 
-// 	} 
-// 	free(temp); 
-// } 
-
-// display the list in forward direction 
-// void display_forward() 
-// { 
-// 	struct node* current = head; 
-// 	while (current != NULL) { 
-// 		printf("%d ", current->data); 
-// 		current = current->next; 
-// 	} 
-// 	printf("\n"); 
-// } 
-
-// // display the list in backward direction 
-// void display_backward() 
-// { 
-// 	struct node* current = tail; 
-// 	while (current != NULL) { 
-// 		printf("%d ", current->data); 
-// 		current = current->prev; 
-// 	} 
-// 	printf("\n"); 
-// } 
-
 
 #endif
