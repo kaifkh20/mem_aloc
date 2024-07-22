@@ -64,6 +64,7 @@ Block* req_from_os(size_t size){
   return block;
 }
 
+
 // First fit algo
 
 Block* first_fit(size_t size){
@@ -120,6 +121,28 @@ Block* best_fit(size_t size){
   return min_block;  
 }
 
+Block* split(Block* data,size_t size){
+  Block* block2 = data+size;
+  Block* next_pd = data->next;
+  data->next = block2;
+
+  block2->next = next_pd;
+  block2->size = data->size - size;
+  data->size = size;
+
+  insert_into_freelist(block2,&fl);
+  // printf("block 2 %ld",block2->size);
+  return data;
+}
+
+Block* listAllocate(Block* data,size_t size){
+  if(data->size>size){
+    data = split(data,size);
+  }
+  data->used = true;
+  data->size = size;
+}
+
 Block* free_list(size_t size){
   struct node* temp = fl.head;
   while(temp!=NULL){
@@ -129,10 +152,8 @@ Block* free_list(size_t size){
       }
       // printf(" in fl %ld , %ld\n",temp->data->size,size);
       remove_from_freelist(temp->data,&fl);
-      // Block* bloc = listAllBlock(temp->data,size);
-      // return bloc;
-      return temp->data;
-     // temp = temp->next; 
+      return listAllocate(temp->data,size);
+      
   }
   return NULL;
 }
@@ -311,16 +332,18 @@ int main(){
 
 
   free_mem(u2);
-  tr_fl(&fl);
+  // tr_fl(&fl);
   free_mem(u1);
   // Into free list
-  tr_fl(&fl);
+  // tr_fl(&fl);
   assert(fl.size == 1 && getHeader(fl.head->data->data)->size==80);
 
 
   // remove_from_freelist(getHeader(u1),&fl);
-  word_t* u3 = alloc_mem(16);
-  tr_fl(&fl);
+  word_t* u3 = alloc_mem(64);
+  // tr_fl(&fl);
+
+  assert(fl.size==1 && getHeader(fl.head->data->data)->size==16);
   
   printf("\nAll Assertions Passed\n");
 
