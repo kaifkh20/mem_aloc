@@ -44,36 +44,6 @@ struct free_list init_freelist(){
   return fl;
 }
 
-// // insert a node at the beginning of the list 
-// void insert_at_head(Block* data) 
-// { 
-// 	struct node* new_node = create_node(data); 
-// 	if (head == NULL) { 
-// 		head = new_node; 
-// 		tail = new_node; 
-// 	} 
-// 	else { 
-// 		new_node->next = head; 
-// 		head->prev = new_node; 
-// 		head = new_node; 
-// 	} 
-// } 
-//
-// // // insert a node at the end of the list 
-// void insert_at_tail(Block* data) 
-// { 
-// 	struct node* new_node = create_node(data); 
-// 	if (tail == NULL) { 
-// 		head = new_node; 
-// 		tail = new_node; 
-// 	} 
-// 	else { 
-// 		new_node->prev = tail; 
-// 		tail->next = new_node; 
-// 		tail = new_node; 
-// 	} 
-// } 
-
 void insert_into_freelist(Block* data,struct free_list* fl){
     // insert_at_head(data);
 	
