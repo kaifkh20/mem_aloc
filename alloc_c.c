@@ -13,14 +13,15 @@ typedef enum{
   FirstFit,
   NextFit,
   BestFit,
-  FreeList
+  FreeList,
+  SegregatedList
 }SearchMode;
 
 
 typedef struct Block{
   size_t size;
-  bool used;
   struct Block* next;
+  bool used;
   word_t data[1];
 }Block;
 
@@ -28,6 +29,15 @@ typedef struct Block{
 Block* heapStart = NULL;
 Block* top = NULL;
 Block* searchStart = NULL;
+
+Block* segreatedLists[] = {
+  NULL,
+  NULL,
+  NULL,
+  NULL,
+  NULL,
+  NULL,
+};
 
 SearchMode searchMode = FirstFit;
 
@@ -158,6 +168,20 @@ Block* free_list(size_t size){
   return NULL;
 }
 
+static inline int getBucket(size_t size){
+  return size/sizeof(word_t)-1;
+}
+
+Block* segFit(size_t size){
+  int bucket = getBucket(size);
+  Block* ogHeapStart = heapStart;
+   
+  heapStart = segreatedLists[bucket];
+  Block* block = first_fit(size);
+  heapStart = ogHeapStart;
+  return block;
+}
+
 Block* findBlock(size_t size){
   switch (searchMode) 
   {
@@ -169,6 +193,8 @@ Block* findBlock(size_t size){
     return best_fit(size);
   case FreeList:
     return free_list(size);
+  case SegregatedList:
+    return segFit(size);
   default:
     break;
   }
