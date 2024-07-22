@@ -4,20 +4,24 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include "free_list.h"
 // using word_t = intptr_t;
+
 #define word_t intptr_t
 
 typedef enum{
   FirstFit,
   NextFit,
-  BestFit
+  BestFit,
+  FreeList,
+  SegregatedList
 }SearchMode;
 
 
 typedef struct Block{
   size_t size;
-  bool used;
   struct Block* next;
+  bool used;
   word_t data[1];
 }Block;
 
@@ -26,8 +30,18 @@ Block* heapStart = NULL;
 Block* top = NULL;
 Block* searchStart = NULL;
 
+Block* segreatedLists[] = {
+  NULL,
+  NULL,
+  NULL,
+  NULL,
+  NULL,
+  NULL,
+};
+
 SearchMode searchMode = FirstFit;
 
+struct free_list fl;
 
 void reset_heap(){
   if(heapStart==NULL) return;
@@ -60,40 +74,6 @@ Block* req_from_os(size_t size){
   return block;
 }
 
-Block* splitBlock(Block* block,size_t size){
-
-  // printf("reaching here");
-
-    Block* block1 = block;
-    
-    Block* block2;
-    block1->next = block2;
-    block1->size = size;
-
-    Block* next_pointed_to_by_block = block->next;
-    block2->next = next_pointed_to_by_block;
-    block2->size = abs(block->size-size);
-    block2->used = false;
-
-    return block1;
-}
-
-static inline bool canSplit(Block* block,size_t size){
-  if(block!=NULL && block->size>size){
-    return true;
-  }else false;
-}
-
-Block* listAllBlock(Block* block,size_t size){
-  if(block==NULL) return NULL;
-  if(canSplit(block,size)){
-    block = splitBlock(block,size);
-  }
-  block->used = true;
-  block->size = size;
-
-  return block;
-}
 
 // First fit algo
 
@@ -151,6 +131,57 @@ Block* best_fit(size_t size){
   return min_block;  
 }
 
+Block* split(Block* data,size_t size){
+  Block* block2 = data+size;
+  Block* next_pd = data->next;
+  data->next = block2;
+
+  block2->next = next_pd;
+  block2->size = data->size - size;
+  data->size = size;
+
+  insert_into_freelist(block2,&fl);
+  // printf("block 2 %ld",block2->size);
+  return data;
+}
+
+Block* listAllocate(Block* data,size_t size){
+  if(data->size>size){
+    data = split(data,size);
+  }
+  data->used = true;
+  data->size = size;
+}
+
+Block* free_list(size_t size){
+  struct node* temp = fl.head;
+  while(temp!=NULL){
+      if(temp->data->size < size && !temp->data->used){
+        temp = temp->next;  
+        continue;
+      }
+      // printf(" in fl %ld , %ld\n",temp->data->size,size);
+      remove_from_freelist(temp->data,&fl);
+      return listAllocate(temp->data,size);
+      
+  }
+  return NULL;
+}
+
+static inline int getBucket(size_t size){
+  return size/sizeof(word_t)-1;
+}
+
+Block* segFit(size_t size){
+  int bucket = getBucket(size);
+  Block* ogHeapStart = heapStart;
+   
+  heapStart = segreatedLists[bucket];
+  Block* block = first_fit(size);
+  heapStart = ogHeapStart;
+  return block;
+}
+
 Block* findBlock(size_t size){
   switch (searchMode) 
   {
@@ -160,6 +191,10 @@ Block* findBlock(size_t size){
     return next_fit(size); 
   case BestFit:
     return best_fit(size);
+  case FreeList:
+    return free_list(size);
+  case SegregatedList:
+    return segFit(size);
   default:
     break;
   }
@@ -222,6 +257,10 @@ Block* merge(Block* block){
 
     block3->size = size_block3;
     block3->next = pointed_to_by_block2;
+
+    // remove_from_freelist(block1,&fl);
+    remove_from_freelist(block2,&fl);
+    // insert_into_freelist(block3,&fl);
     
     return block3;
 }
@@ -232,7 +271,21 @@ void free_mem(word_t* data){
   if(canMerge(block)){
     block = merge(block);
   }
+  if(searchMode==FreeList){
+    insert_into_freelist(block,&fl);
+  }
   block->used = false;
+}
+
+void tr_fl(struct free_list* fl){
+  struct node* temp = fl->head;
+  while (temp!=NULL)
+  {
+    printf("%ld -> ",temp->data->size);
+    temp = temp->next;
+    /* code */
+  }printf("\n");
+  
 }
 
 int main(){
@@ -296,8 +349,27 @@ int main(){
 
   assert(getHeader(z3)==getHeader(z2));
   
-  // z3 = alloc_mem(16);
-  // assert(getHeader(z3) == getHeader(z1));
+  //Free list
+  init(FreeList);
+  fl = init_freelist();
+  word_t* u1 = alloc_mem(64);
+
+  word_t* u2 = alloc_mem(16);
+
+
+  free_mem(u2);
+  // tr_fl(&fl);
+  free_mem(u1);
+  // Into free list
+  // tr_fl(&fl);
+  assert(fl.size == 1 && getHeader(fl.head->data->data)->size==80);
+
+
+  // remove_from_freelist(getHeader(u1),&fl);
+  word_t* u3 = alloc_mem(64);
+  // tr_fl(&fl);
+
+  assert(fl.size==1 && getHeader(fl.head->data->data)->size==16);
   
   printf("\nAll Assertions Passed\n");
 
