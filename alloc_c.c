@@ -151,6 +151,7 @@ Block* listAllocate(Block* data,size_t size){
   }
   data->used = true;
   data->size = size;
+  return data;
 }
 
 Block* free_list(size_t size){
@@ -376,3 +377,4 @@ int main(){
 
   return 0;
 }
+
